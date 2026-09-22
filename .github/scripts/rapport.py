@@ -27,6 +27,7 @@ def get(url, headers=None):
 def statistiques_site():
     """Visites et clics sur le bouton de téléchargement, la veille."""
     if not GOAT_TOKEN:
+        print("Diagnostic : le secret GOATCOUNTER_TOKEN est vide.")
         return None
     base = f"https://{GOAT_SITE}.goatcounter.com/api/v0"
     entetes = {"Authorization": f"Bearer {GOAT_TOKEN}"}
@@ -34,7 +35,12 @@ def statistiques_site():
     try:
         total = get(f"{base}/stats/total?{periode}", entetes)
         pages = get(f"{base}/stats/hits?{periode}", entetes)
-    except (urllib.error.URLError, urllib.error.HTTPError, ValueError):
+    except urllib.error.HTTPError as erreur:
+        detail = erreur.read().decode("utf-8", "replace")[:200]
+        print(f"Diagnostic : GoatCounter a repondu {erreur.code} : {detail}")
+        return None
+    except (urllib.error.URLError, ValueError) as erreur:
+        print(f"Diagnostic : appel GoatCounter impossible ({erreur})")
         return None
 
     clics = 0
@@ -46,7 +52,6 @@ def statistiques_site():
         "pages_vues": total.get("total", 0),
         "clics": clics,
     }
-
 
 def telechargements_apk():
     """Téléchargements par release, via l'API GitHub."""
