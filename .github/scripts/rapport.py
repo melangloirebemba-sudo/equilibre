@@ -45,19 +45,29 @@ def statistiques_site(jour):
         print(f"Diagnostic : appel GoatCounter impossible ({erreur})")
         return None
 
-    # Réponses brutes, pour ajuster les noms de champs si besoin.
+    # Réponses brutes, utiles tant que les noms de champs ne sont pas confirmés.
     print(f"DIAGNOSTIC total ({jour}) : {json.dumps(total)[:500]}")
     print(f"DIAGNOSTIC hits ({jour}) : {json.dumps(pages)[:1500]}")
 
-    clics = 0
-    for ligne in pages.get("hits", []):
-        if EVENT_TELECHARGEMENT in (ligne.get("path") or ""):
-            clics += ligne.get("count", 0)
-    return {
-        "visites": total.get("total_unique", 0),
-        "pages_vues": total.get("total", 0),
-        "clics": clics,
-    }
+    hits = pages.get("hits", [])
+    pages_vues = sum(ligne.get("count", 0) for ligne in hits)
+    clics = sum(
+        ligne.get("count", 0)
+        for ligne in hits
+        if EVENT_TELECHARGEMENT in (ligne.get("path") or "")
+    )
+
+    # Selon la version de GoatCounter, le total porte des noms différents.
+    visites = 0
+    for champ in ("total_unique", "total_unique_utc", "total_utc", "total"):
+        valeur = total.get(champ)
+        if isinstance(valeur, int) and valeur:
+            visites = valeur
+            break
+    if not visites:
+        visites = pages_vues
+
+    return {"visites": visites, "pages_vues": pages_vues or visites, "clics": clics}
 
 
 def telechargements_apk():
@@ -81,4 +91,58 @@ def telechargements_apk():
         total += compte
         if derniere is None:
             derniere = {"tag": release.get("tag_name", "?"), "compte": compte}
-    return
+    return {"total": total, "derniere": derniere}
+
+
+def bloc_site(titre, jour):
+    stats = statistiques_site(jour)
+    if not stats:
+        return [f"<b>{titre}</b>", "Statistiques indisponibles", ""]
+    return [
+        f"<b>{titre}</b>",
+        f"Visiteurs : {stats['visites']}",
+        f"Pages vues : {stats['pages_vues']}",
+        f"Clics sur Telecharger : {stats['clics']}",
+        "",
+    ]
+
+
+lignes = [f"<b>Equilibre</b> - rapport du {aujourdhui.strftime('%d/%m/%Y')}", ""]
+lignes += bloc_site("Site, hier", hier)
+lignes += bloc_site("Site, ce jour", aujourdhui)
+
+apk = telechargements_apk()
+if apk:
+    lignes += ["<b>Application</b>", f"Telechargements APK au total : {apk['total']}"]
+    if apk["derniere"]:
+        lignes.append(
+            f"Derniere version {apk['derniere']['tag']} : {apk['derniere']['compte']} telechargements"
+        )
+else:
+    lignes += ["<b>Application</b>", "Telechargements indisponibles"]
+
+message = "\n".join(lignes)
+
+
+def envoyer(texte, html=True):
+    parametres = {"chat_id": CHAT_ID, "text": texte}
+    if html:
+        parametres["parse_mode"] = "HTML"
+    donnees = urllib.parse.urlencode(parametres).encode()
+    urllib.request.urlopen(
+        urllib.request.Request(f"https://api.telegram.org/bot{TOKEN}/sendMessage", data=donnees),
+        timeout=30,
+    )
+
+
+print(f"Controle : message de {len(message)} caracteres")
+
+try:
+    envoyer(message)
+    print("Rapport envoye.")
+except urllib.error.HTTPError as erreur:
+    detail = erreur.read().decode("utf-8", "replace")
+    print(f"Telegram a refuse le format HTML ({erreur.code}) : {detail}")
+    # Seconde tentative, sans balises de mise en forme.
+    envoyer(message.replace("<b>", "").replace("</b>", ""), html=False)
+    print("Rapport envoye en texte simple.")
