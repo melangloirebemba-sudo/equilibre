@@ -1,0 +1,21 @@
+name: Rapport quotidien Equilibre
+
+on:
+  schedule:
+    # 06h00 heure de Brazzaville (05h00 UTC), tous les jours
+    - cron: '0 5 * * *'
+  workflow_dispatch:   # permet aussi de le lancer à la main
+
+jobs:
+  rapport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Envoyer le rapport sur Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GOATCOUNTER_TOKEN: ${{ secrets.GOATCOUNTER_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: python .github/scripts/rapport.py
