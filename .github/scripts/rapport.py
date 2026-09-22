@@ -15,7 +15,8 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 GOAT_TOKEN = os.environ.get("GOATCOUNTER_TOKEN", "")
 REPO = os.environ.get("GITHUB_REPO", "melangloirebemba-sudo/equilibre")
 
-hier = date.today() - timedelta(days=1)
+aujourdhui = date.today()
+hier = aujourdhui - timedelta(days=1)
 
 
 def get(url, headers=None):
@@ -25,7 +26,7 @@ def get(url, headers=None):
 
 
 def statistiques_site(jour):
-    """Visites et clics du jour donné. Version de diagnostic."""
+    """Visites et clics sur le bouton de téléchargement, pour un jour donné."""
     if not GOAT_TOKEN:
         print("Diagnostic : le secret GOATCOUNTER_TOKEN est vide.")
         return None
@@ -40,7 +41,11 @@ def statistiques_site(jour):
     except urllib.error.HTTPError as erreur:
         print(f"Diagnostic : {erreur.code} : {erreur.read().decode('utf-8', 'replace')[:300]}")
         return None
+    except (urllib.error.URLError, ValueError) as erreur:
+        print(f"Diagnostic : appel GoatCounter impossible ({erreur})")
+        return None
 
+    # Réponses brutes, pour ajuster les noms de champs si besoin.
     print(f"DIAGNOSTIC total ({jour}) : {json.dumps(total)[:500]}")
     print(f"DIAGNOSTIC hits ({jour}) : {json.dumps(pages)[:1500]}")
 
@@ -53,6 +58,7 @@ def statistiques_site(jour):
         "pages_vues": total.get("total", 0),
         "clics": clics,
     }
+
 
 def telechargements_apk():
     """Téléchargements par release, via l'API GitHub."""
@@ -75,40 +81,4 @@ def telechargements_apk():
         total += compte
         if derniere is None:
             derniere = {"tag": release.get("tag_name", "?"), "compte": compte}
-    return {"total": total, "derniere": derniere}
-
-
-lignes = [f"<b>Equilibre</b> - rapport du {hier.strftime('%d/%m/%Y')}", ""]
-
-site = statistiques_site()
-if site:
-    lignes += [
-        "<b>Site</b>",
-        f"Visiteurs : {site['visites']}",
-        f"Pages vues : {site['pages_vues']}",
-        f"Clics sur Telecharger : {site['clics']}",
-        "",
-    ]
-else:
-    lignes += ["<b>Site</b>", "Statistiques indisponibles", ""]
-
-apk = telechargements_apk()
-if apk:
-    lignes += ["<b>Application</b>", f"Telechargements APK au total : {apk['total']}"]
-    if apk["derniere"]:
-        lignes.append(
-            f"Derniere version {apk['derniere']['tag']} : {apk['derniere']['compte']} telechargements"
-        )
-else:
-    lignes += ["<b>Application</b>", "Telechargements indisponibles"]
-
-message = "\n".join(lignes)
-
-donnees = urllib.parse.urlencode(
-    {"chat_id": CHAT_ID, "text": message, "parse_mode": "HTML"}
-).encode()
-urllib.request.urlopen(
-    urllib.request.Request(f"https://api.telegram.org/bot{TOKEN}/sendMessage", data=donnees),
-    timeout=30,
-)
-print("Rapport envoye.")
+    return
