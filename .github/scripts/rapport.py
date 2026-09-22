@@ -1,14 +1,15 @@
-"""Rapport quotidien Equilibre, envoyé sur Telegram."""
+"""Rapport Equilibre, envoyé sur Telegram avec les variations depuis le dernier envoi."""
 
 import json
 import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 GOAT_SITE = "equilibre-bersi"
 EVENT_TELECHARGEMENT = "telechargement-apk"
+FICHIER_ETAT = ".github/etat-rapport.json"
 
 TOKEN = os.environ["TELEGRAM_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
@@ -28,7 +29,6 @@ def get(url, headers=None):
 def statistiques_site(jour):
     """Visites et clics sur le bouton de téléchargement, pour un jour donné."""
     if not GOAT_TOKEN:
-        print("Diagnostic : le secret GOATCOUNTER_TOKEN est vide.")
         return None
     base = f"https://{GOAT_SITE}.goatcounter.com/api/v0"
     entetes = {"Authorization": f"Bearer {GOAT_TOKEN}"}
@@ -38,16 +38,9 @@ def statistiques_site(jour):
     try:
         total = get(f"{base}/stats/total?{periode}", entetes)
         pages = get(f"{base}/stats/hits?{periode}", entetes)
-    except urllib.error.HTTPError as erreur:
-        print(f"Diagnostic : {erreur.code} : {erreur.read().decode('utf-8', 'replace')[:300]}")
+    except (urllib.error.URLError, urllib.error.HTTPError, ValueError) as erreur:
+        print(f"GoatCounter indisponible : {erreur}")
         return None
-    except (urllib.error.URLError, ValueError) as erreur:
-        print(f"Diagnostic : appel GoatCounter impossible ({erreur})")
-        return None
-
-    # Réponses brutes, utiles tant que les noms de champs ne sont pas confirmés.
-    print(f"DIAGNOSTIC total ({jour}) : {json.dumps(total)[:500]}")
-    print(f"DIAGNOSTIC hits ({jour}) : {json.dumps(pages)[:1500]}")
 
     hits = pages.get("hits", [])
     pages_vues = sum(ligne.get("count", 0) for ligne in hits)
@@ -56,18 +49,13 @@ def statistiques_site(jour):
         for ligne in hits
         if EVENT_TELECHARGEMENT in (ligne.get("path") or "")
     )
-
-    # Selon la version de GoatCounter, le total porte des noms différents.
     visites = 0
     for champ in ("total_unique", "total_unique_utc", "total_utc", "total"):
         valeur = total.get(champ)
         if isinstance(valeur, int) and valeur:
             visites = valeur
             break
-    if not visites:
-        visites = pages_vues
-
-    return {"visites": visites, "pages_vues": pages_vues or visites, "clics": clics}
+    return {"visites": visites or pages_vues, "pages_vues": pages_vues, "clics": clics}
 
 
 def telechargements_apk():
@@ -94,32 +82,73 @@ def telechargements_apk():
     return {"total": total, "derniere": derniere}
 
 
-def bloc_site(titre, jour):
-    stats = statistiques_site(jour)
-    if not stats:
-        return [f"<b>{titre}</b>", "Statistiques indisponibles", ""]
-    return [
-        f"<b>{titre}</b>",
-        f"Visiteurs : {stats['visites']}",
-        f"Pages vues : {stats['pages_vues']}",
-        f"Clics sur Telecharger : {stats['clics']}",
+def variation(actuel, precedent):
+    """« +3 » si la valeur a augmenté depuis le dernier rapport, sinon rien."""
+    if precedent is None:
+        return ""
+    ecart = actuel - precedent
+    return f"  (+{ecart})" if ecart > 0 else ""
+
+
+# État du dernier envoi
+etat = {}
+if os.path.exists(FICHIER_ETAT):
+    try:
+        with open(FICHIER_ETAT, encoding="utf-8") as fichier:
+            etat = json.load(fichier)
+    except (OSError, ValueError):
+        etat = {}
+
+meme_jour = etat.get("jour") == aujourdhui.isoformat()
+site = statistiques_site(aujourdhui)
+site_hier = statistiques_site(hier)
+apk = telechargements_apk()
+
+# Y a-t-il du nouveau depuis le dernier envoi ?
+nouveautes = []
+if site:
+    if variation(site["visites"], etat.get("visites") if meme_jour else None):
+        nouveautes.append("visites")
+    if variation(site["clics"], etat.get("clics") if meme_jour else None):
+        nouveautes.append("clics")
+if apk and variation(apk["total"], etat.get("telechargements")):
+    nouveautes.append("telechargements")
+
+heure = datetime.now(timezone(timedelta(hours=1))).strftime("%Hh%M")
+titre = "Du nouveau" if nouveautes else "Rapport"
+lignes = [f"<b>Equilibre</b> - {titre}, {aujourdhui.strftime('%d/%m/%Y')} a {heure}", ""]
+
+if site:
+    lignes += [
+        "<b>Site, aujourd hui</b>",
+        f"Visiteurs : {site['visites']}{variation(site['visites'], etat.get('visites') if meme_jour else None)}",
+        f"Pages vues : {site['pages_vues']}",
+        f"Clics sur Telecharger : {site['clics']}{variation(site['clics'], etat.get('clics') if meme_jour else None)}",
+        "",
+    ]
+else:
+    lignes += ["<b>Site, aujourd hui</b>", "Statistiques indisponibles", ""]
+
+if site_hier:
+    lignes += [
+        "<b>Site, hier</b>",
+        f"{site_hier['visites']} visiteurs, {site_hier['clics']} clics sur Telecharger",
         "",
     ]
 
-
-lignes = [f"<b>Equilibre</b> - rapport du {aujourdhui.strftime('%d/%m/%Y')}", ""]
-lignes += bloc_site("Site, hier", hier)
-lignes += bloc_site("Site, ce jour", aujourdhui)
-
-apk = telechargements_apk()
 if apk:
-    lignes += ["<b>Application</b>", f"Telechargements APK au total : {apk['total']}"]
+    lignes += [
+        "<b>Application</b>",
+        f"Telechargements APK : {apk['total']}{variation(apk['total'], etat.get('telechargements'))}",
+    ]
     if apk["derniere"]:
-        lignes.append(
-            f"Derniere version {apk['derniere']['tag']} : {apk['derniere']['compte']} telechargements"
-        )
+        lignes.append(f"Derniere version : {apk['derniere']['tag']} ({apk['derniere']['compte']})")
 else:
     lignes += ["<b>Application</b>", "Telechargements indisponibles"]
+
+if site and site["visites"] and site["clics"]:
+    taux = round(site["clics"] * 100 / site["visites"])
+    lignes += ["", f"Taux de telechargement du jour : {taux} %"]
 
 message = "\n".join(lignes)
 
@@ -135,14 +164,23 @@ def envoyer(texte, html=True):
     )
 
 
-print(f"Controle : message de {len(message)} caracteres")
-
 try:
     envoyer(message)
     print("Rapport envoye.")
 except urllib.error.HTTPError as erreur:
-    detail = erreur.read().decode("utf-8", "replace")
-    print(f"Telegram a refuse le format HTML ({erreur.code}) : {detail}")
-    # Seconde tentative, sans balises de mise en forme.
+    print(f"Telegram a refuse le HTML ({erreur.code}) : {erreur.read().decode('utf-8', 'replace')}")
     envoyer(message.replace("<b>", "").replace("</b>", ""), html=False)
     print("Rapport envoye en texte simple.")
+
+# Mémorise les chiffres pour le prochain rapport
+nouvel_etat = {"jour": aujourdhui.isoformat()}
+if site:
+    nouvel_etat["visites"] = site["visites"]
+    nouvel_etat["clics"] = site["clics"]
+if apk:
+    nouvel_etat["telechargements"] = apk["total"]
+
+os.makedirs(os.path.dirname(FICHIER_ETAT), exist_ok=True)
+with open(FICHIER_ETAT, "w", encoding="utf-8") as fichier:
+    json.dump(nouvel_etat, fichier, indent=2)
+print("Etat enregistre.")
