@@ -24,24 +24,25 @@ def get(url, headers=None):
         return json.load(reponse)
 
 
-def statistiques_site():
-    """Visites et clics sur le bouton de téléchargement, la veille."""
+def statistiques_site(jour):
+    """Visites et clics du jour donné. Version de diagnostic."""
     if not GOAT_TOKEN:
         print("Diagnostic : le secret GOATCOUNTER_TOKEN est vide.")
         return None
     base = f"https://{GOAT_SITE}.goatcounter.com/api/v0"
     entetes = {"Authorization": f"Bearer {GOAT_TOKEN}"}
-    periode = urllib.parse.urlencode({"start": hier.isoformat(), "end": hier.isoformat()})
+    periode = urllib.parse.urlencode(
+        {"start": f"{jour.isoformat()}T00:00:00Z", "end": f"{jour.isoformat()}T23:59:59Z"}
+    )
     try:
         total = get(f"{base}/stats/total?{periode}", entetes)
         pages = get(f"{base}/stats/hits?{periode}", entetes)
     except urllib.error.HTTPError as erreur:
-        detail = erreur.read().decode("utf-8", "replace")[:200]
-        print(f"Diagnostic : GoatCounter a repondu {erreur.code} : {detail}")
+        print(f"Diagnostic : {erreur.code} : {erreur.read().decode('utf-8', 'replace')[:300]}")
         return None
-    except (urllib.error.URLError, ValueError) as erreur:
-        print(f"Diagnostic : appel GoatCounter impossible ({erreur})")
-        return None
+
+    print(f"DIAGNOSTIC total ({jour}) : {json.dumps(total)[:500]}")
+    print(f"DIAGNOSTIC hits ({jour}) : {json.dumps(pages)[:1500]}")
 
     clics = 0
     for ligne in pages.get("hits", []):
