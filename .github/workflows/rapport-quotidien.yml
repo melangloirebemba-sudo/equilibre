@@ -2,8 +2,12 @@ name: Rapport quotidien Equilibre
 
 on:
   schedule:
-    # 06h00 heure de Brazzaville (05h00 UTC), tous les jours
+    # , tous les jours 
     - cron: '0 5 * * *'
+    - cron: '0 11 * * *'   # 12h00
+    - cron: '0 18 * * *'   # 19h00
+    - cron: '0 21 * * *'   # 21h00
+    
   workflow_dispatch:   # permet aussi de le lancer à la main
 
 jobs:
