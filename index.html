@@ -61,7 +61,7 @@
   }
   .btn:hover { filter: brightness(1.05); }
   .btn svg { width: 22px; height: 22px; }
-  .meta { color: #9fc0b1; font-size: 14px; }
+  .meta { color: #9fc0b1; font-size: 14px; margin: 0; }
   .btn-ghost {
     display: inline-block; color: #cfe6da; text-decoration: none; font-size: 15px;
     border: 1px solid rgba(255,255,255,.25); padding: 9px 18px; border-radius: 999px;
@@ -163,19 +163,19 @@
 
     <div class="cta">
       <a class="btn" id="download"
-   data-goatcounter-click="telechargement-apk"
-   data-goatcounter-title="Clic sur Télécharger l'APK"
-   href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre.apk">Télécharger l'APK
+         data-goatcounter-click="telechargement-apk"
+         data-goatcounter-title="Clic sur Télécharger l'APK"
+         href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre.apk">
+        Télécharger l'APK
       </a>
-           <p class="meta" id="release-info">Android 14.0 ou plus récent, environ 28 Mo, une application complètement gratuite</p>
+      <p class="meta" id="release-info">Android 6.0 ou plus récent, environ 28 Mo, une application complètement gratuite</p>
       <p class="meta">
-        Téléphone ancien ? application non compatible  ? Essayez cette version en clique ici
+        L'installation échoue ou votre téléphone est ancien ?
         <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk"
-           style="color:#B5F36B;text-decoration:underline">Equilibre version 32 bits</a>.
+           data-goatcounter-click="telechargement-apk-32bits"
+           data-goatcounter-title="Clic sur version 32 bits"
+           style="color:#B5F36B;text-decoration:underline">Téléchargez la version 32 bits</a>.
       </p>
-
-    </div>
-
     </div>
   </div>
 </header>
@@ -276,6 +276,14 @@
       <p>Exportez vos données depuis l'ancien téléphone, ou sauvegardez sur Google Drive, puis importez sur le nouveau.</p>
     </details>
     <details>
+      <summary>L'installation échoue, que faire ?</summary>
+      <p>
+        Si Android affiche « application non compatible », votre téléphone est probablement en 32 bits :
+        téléchargez alors la <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk">version 32 bits</a>.
+        Gardez ensuite toujours la même version lors des mises à jour.
+      </p>
+    </details>
+    <details>
       <summary>Une version iPhone est-elle prévue ?</summary>
       <p>Pas pour le moment. L'application est développée en Flutter, donc une version iOS reste possible.</p>
     </details>
@@ -285,15 +293,6 @@
         Écrivez à <a href="mailto:bersi-cg@outlook.fr">bersi-cg@outlook.fr</a> ou contactez-nous sur
         WhatsApp au <a href="https://wa.me/242069626540">+242 06962 65 40</a>, en précisant votre modèle
         de téléphone et votre version d'Android.
-      </p>
-    </details>
-
-        <details>
-      <summary>L'installation échoue, que faire ?</summary>
-      <p>
-        Si Android affiche « application non compatible », votre téléphone est probablement en 32 bits :
-        téléchargez alors la <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk">version 32 bits</a>.
-        Gardez ensuite toujours la même version lors des mises à jour.
       </p>
     </details>
   </div>
@@ -367,7 +366,8 @@
       const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
       if (!r.ok) return;
       const data = await r.json();
-      const apk = (data.assets || []).find(a => a.name.toLowerCase().endsWith('.apk'));
+      // Uniquement le fichier principal : la variante 32 bits ne doit pas remplacer le bouton.
+      const apk = (data.assets || []).find(a => a.name.toLowerCase() === 'equilibre.apk');
       if (!apk) return;
       document.getElementById('download').href = apk.browser_download_url;
       const mo = (apk.size / 1048576).toFixed(0);
@@ -380,7 +380,7 @@
   })();
 </script>
 
-  <script data-goatcounter="https://equilibre-bersi.goatcounter.com/count"
+<script data-goatcounter="https://equilibre-bersi.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
