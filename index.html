@@ -97,6 +97,7 @@
   .btn:hover { filter: brightness(1.05); }
   .btn svg { width: 22px; height: 22px; }
   .meta { color: #9fc0b1; font-size: 14px; margin: 0; }
+  .meta a { color: #B5F36B; text-decoration: underline; }
   .btn-ghost {
     display: inline-block; color: #cfe6da; text-decoration: none; font-size: 15px;
     border: 1px solid rgba(255,255,255,.25); padding: 9px 18px; border-radius: 999px;
@@ -224,11 +225,15 @@
       </a>
       <p class="meta" id="release-info">Android 6.0 ou plus récent, environ 28 Mo, une application complètement gratuite</p>
       <p class="meta">
-        L'installation échoue ou votre téléphone est ancien ?
+        L'installation échoue ou votre téléphone est ancien ? Essayez la
         <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk"
            data-goatcounter-click="telechargement-apk-32bits"
-           data-goatcounter-title="Clic sur version 32 bits"
-           style="color:#B5F36B;text-decoration:underline">Téléchargez la version 32 bits</a>.
+           data-goatcounter-title="Clic sur version 32 bits">version 32 bits</a>
+        ou la
+        <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-complet.apk"
+           data-goatcounter-click="telechargement-apk-complet"
+           data-goatcounter-title="Clic sur version universelle">version universelle</a>,
+        plus lourde mais compatible avec tous les téléphones.
       </p>
 
       <a class="btn-whatsapp"
@@ -366,9 +371,15 @@
     <details>
       <summary>L'installation échoue, que faire ?</summary>
       <p>
-        Si Android affiche « application non compatible », votre téléphone est probablement en 32 bits :
-        téléchargez alors la <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk">version 32 bits</a>.
-        Gardez ensuite toujours la même version lors des mises à jour.
+        Trois fichiers sont proposés. Le bouton vert convient à la plupart des téléphones récents.
+        Si Android affiche « application non compatible », essayez la
+        <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-32bits.apk">version 32 bits</a>,
+        prévue pour les téléphones plus anciens. Si le message « application non installée »
+        persiste, prenez la
+        <a href="https://github.com/melangloirebemba-sudo/equilibre/releases/latest/download/equilibre-complet.apk">version universelle</a> :
+        elle est plus lourde, mais fonctionne partout. Si Equilibre était déjà installé,
+        désinstallez-le d'abord, après avoir exporté vos données. Gardez ensuite toujours le même
+        fichier lors des mises à jour.
       </p>
     </details>
     <details>
@@ -455,7 +466,8 @@
       const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
       if (!r.ok) return;
       const data = await r.json();
-      // Uniquement le fichier principal : la variante 32 bits ne doit pas remplacer le bouton.
+      // Nom exact : ni la variante 32 bits, ni la version universelle ne doivent
+      // remplacer le bouton principal.
       const apk = (data.assets || []).find(a => a.name.toLowerCase() === 'equilibre.apk');
       if (!apk) return;
       document.getElementById('download').href = apk.browser_download_url;
